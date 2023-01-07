@@ -1,0 +1,35 @@
+{
+    "$schema": "http://json.schemastore.org/tsconfig",
+    "compilerOptions": {
+      "outDir": "dist",
+      "rootDir": "src",
+      "emitDecoratorMetadata": true,
+      "experimentalDecorators": true,
+      "noImplicitAny": true,
+      "strictNullChecks": true,
+      "resolveJsonModule": true,
+      "skipLibCheck": true,
+      "incremental": true,
+      "lib": [
+        "DOM",
+        "es2018",
+        "esnext.asynciterable"
+      ],
+      "module": "AMD",
+      "esModuleInterop": true,
+      "moduleResolution": "node",
+      "target": "ES6",
+      "sourceMap": true,
+      "declaration": true,
+      "outFile": "dist/form.js"
+    },
+    "include": [
+      "src",
+      "mytest.ts"
+    ],
+    "exclude": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/*.d.ts"
+    ]
+  }

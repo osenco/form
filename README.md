@@ -5,7 +5,7 @@ Extracted useForm from InertiaJS to make form handling faster
 ## Installation
 
 ```bash
-pnp add @osenco/form
+pnpm add @osenco/form
 ```
 
 ## Usage
@@ -34,6 +34,7 @@ const submitForm = async () => {
             Name
             <input v-model="form.name" type="name" />
         </label>
+        
         <label>
             Email
             <input v-model="form.email" type="email" />

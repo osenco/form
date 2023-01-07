@@ -7,7 +7,6 @@
       "experimentalDecorators": true,
       "noImplicitAny": true,
       "strictNullChecks": true,
-      "resolveJsonModule": true,
       "skipLibCheck": true,
       "incremental": true,
       "lib": [
@@ -15,13 +14,12 @@
         "es2018",
         "esnext.asynciterable"
       ],
-      "module": "AMD",
+      "module": "CommonJS",
       "esModuleInterop": true,
       "moduleResolution": "node",
       "target": "ES6",
       "sourceMap": true,
-      "declaration": true,
-      "outFile": "dist/form.js"
+      "declaration": true
     },
     "include": [
       "src",

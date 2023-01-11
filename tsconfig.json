@@ -11,8 +11,9 @@
       "incremental": true,
       "lib": [
         "DOM",
-        "es2018",
-        "esnext.asynciterable"
+        "ES6",
+        "esnext.asynciterable",
+        "DOM.Iterable"
       ],
       "module": "CommonJS",
       "esModuleInterop": true,

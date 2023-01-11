@@ -1,125 +1,84 @@
-import { Progress, VisitOptions } from "./types";
-import { cloneDeep, isEqual } from "lodash";
+import { AxiosRequestConfig } from "axios";
 import { reactive, watch } from "vue";
-import { Router } from "./router";
+import {
+	deleteRecord,
+	remoteGet,
+	remotePatch,
+	remotePost,
+	remotePut,
+} from "./http";
 
-export { default as setupProgress } from "./progress";
-export { default as shouldIntercept } from "./shouldIntercept";
-export * from "./types";
-export { hrefToUrl, mergeDataIntoQueryString, urlWithoutHash } from "./url";
-export { type Router };
-
-export const router = new Router();
-
-interface InertiaFormProps<TForm extends Record<string, unknown>> {
-	isDirty: boolean;
-	errors: Partial<Record<keyof TForm, string>>;
-	hasErrors: boolean;
-	processing: boolean;
-	progress: Progress | null;
-	wasSuccessful: boolean;
-	recentlySuccessful: boolean;
-	data(): TForm;
-	transform(callback: (data: TForm) => object): this;
-	defaults(): this;
-	defaults(field: keyof TForm, value: string): this;
-	defaults(fields: Record<keyof TForm, string>): this;
-	reset(...fields: (keyof TForm)[]): this;
-	clearErrors(...fields: (keyof TForm)[]): this;
-	setError(field: keyof TForm, value: string): this;
-	setError(errors: Record<keyof TForm, string>): this;
-	submit(method: string, url: string, options?: Partial<VisitOptions>): void;
-	get(url: string, options?: Partial<VisitOptions>): void;
-	post(url: string, options?: Partial<VisitOptions>): void;
-	put(url: string, options?: Partial<VisitOptions>): void;
-	patch(url: string, options?: Partial<VisitOptions>): void;
-	delete(url: string, options?: Partial<VisitOptions>): void;
-	cancel(): void;
+interface TFormOpts {
+	onStart?: Function;
+	onCancelToken?: Function;
+	onBefore?: Function;
+	onSuccess?: Function;
+	onError?: Function;
+	onFinally?: Function;
+	onProgress?: Function;
+	onComplete?: Function;
+	onAbort?: Function;
+	onTimeout?: Function;
+	onCancel?: Function;
+	onUploadProgress?: Function;
+	onFinish?: Function;
 }
 
-type InertiaForm<TForm extends Record<string, unknown>> = TForm &
-	InertiaFormProps<TForm>;
-
-export default function useForm<TForm extends Record<string, unknown>>(
+export default function useForm<TForm extends Record<string, any>>(
 	data: TForm
-): InertiaForm<TForm>;
-export default function useForm<TForm extends Record<string, unknown>>(
-	rememberKey: string,
-	data: TForm
-): InertiaForm<TForm>;
-export default function useForm<TForm extends Record<string, unknown>>(
-	rememberKeyOrData: string | TForm,
-	maybeData?: TForm
-): InertiaForm<TForm> {
-	const rememberKey =
-		typeof rememberKeyOrData === "string" ? rememberKeyOrData : null;
-	const data =
-		typeof rememberKeyOrData === "object"
-			? rememberKeyOrData
-			: (maybeData as TForm);
-	const restored = rememberKey
-		? (router.restore(rememberKey) as {
-				data: TForm;
-				errors: Record<keyof TForm, string>;
-		  })
-		: null;
-	let defaults = cloneDeep(data);
-	let cancelToken: any;
-	let recentlySuccessfulTimeoutId: NodeJS.Timeout;
-	let transform = (data: any) => data;
+) {
+	let defaults: any = {};
+	let cancelToken: any = null;
+	let recentlySuccessfulTimeoutId: any = null;
 
-	let form = reactive({
-		...(restored ? restored.data : data),
+	let transform: Function = (data: any) => data;
+
+	const form = reactive({
+		...data,
 		isDirty: false,
-		errors: restored ? restored.errors : {},
+		errors: data.errors,
 		hasErrors: false,
 		processing: false,
 		progress: null,
 		wasSuccessful: false,
 		recentlySuccessful: false,
-		data() {
-			return (Object.keys(data) as Array<keyof TForm>).reduce(
-				(carry, key) => {
-					carry[key] = this[key];
-					return carry;
-				},
-				{} as Partial<TForm>
-			) as TForm;
-		},
-		transform(callback: any) {
-			transform = callback;
 
+		data() {
+			return Object.keys(data).reduce((carry: any, key) => {
+				carry[key] = this[key];
+				return carry;
+			}, {});
+		},
+
+		transform(callback: Function) {
+			transform = callback;
 			return this;
 		},
-		defaults(
-			fieldOrFields?: keyof TForm | Record<keyof TForm, string>,
-			maybeValue?: string
-		) {
-			if (typeof fieldOrFields === "undefined") {
+
+		defaults(key: any, value: any) {
+			if (typeof key === "undefined") {
 				defaults = this.data();
 			} else {
 				defaults = Object.assign(
 					{},
-					cloneDeep(defaults),
-					typeof fieldOrFields === "string"
-						? { [fieldOrFields]: maybeValue }
-						: fieldOrFields
+					defaults,
+					value ? { [key]: value } : key
 				);
 			}
 
 			return this;
 		},
+
 		reset(...fields: any) {
-			let clonedDefaults = cloneDeep(defaults);
 			if (fields.length === 0) {
-				Object.assign(this, clonedDefaults);
+				Object.assign(this, defaults);
 			} else {
 				Object.assign(
 					this,
-					Object.keys(clonedDefaults)
+					Object.keys(defaults)
 						.filter((key) => fields.includes(key))
-						.reduce((carry: any, key) => {
-							carry[key] = clonedDefaults[key];
+						.reduce((carry: any, key: string) => {
+							carry[key] = defaults[key];
 							return carry;
 						}, {})
 				);
@@ -127,21 +86,15 @@ export default function useForm<TForm extends Record<string, unknown>>(
 
 			return this;
 		},
-		setError(
-			fieldOrFields: keyof TForm | Record<keyof TForm, string>,
-			maybeValue?: string
-		) {
-			Object.assign(
-				this.errors,
-				typeof fieldOrFields === "string"
-					? { [fieldOrFields]: maybeValue }
-					: fieldOrFields
-			);
+
+		setError(key: any, value: any) {
+			Object.assign(this.errors, value ? { [key]: value } : key);
 
 			this.hasErrors = Object.keys(this.errors).length > 0;
 
 			return this;
 		},
+
 		clearErrors(...fields: any) {
 			this.errors = Object.keys(this.errors).reduce(
 				(carry, field) => ({
@@ -157,7 +110,13 @@ export default function useForm<TForm extends Record<string, unknown>>(
 
 			return this;
 		},
-		submit(method: string, url: string, options: VisitOptions = {}) {
+
+		async submit(
+			method: string,
+			url: string,
+			options: TFormOpts & AxiosRequestConfig = {}
+		) {
+			this.processing = true;
 			const data = transform(this.data());
 			const _options = {
 				...options,
@@ -197,6 +156,7 @@ export default function useForm<TForm extends Record<string, unknown>>(
 					this.clearErrors();
 					this.wasSuccessful = true;
 					this.recentlySuccessful = true;
+
 					recentlySuccessfulTimeoutId = setTimeout(
 						() => (this.recentlySuccessful = false),
 						2000
@@ -205,14 +165,17 @@ export default function useForm<TForm extends Record<string, unknown>>(
 					const onSuccess = options.onSuccess
 						? await options.onSuccess(page)
 						: null;
-					defaults = cloneDeep(this.data());
+
+					defaults = {};
+
 					this.isDirty = false;
+
 					return onSuccess;
 				},
 				onError: (errors: any) => {
 					this.processing = false;
 					this.progress = null;
-					this.clearErrors().setError(errors);
+					this.clearErrors().setError(errors, errors);
 
 					if (options.onError) {
 						return options.onError(errors);
@@ -226,60 +189,89 @@ export default function useForm<TForm extends Record<string, unknown>>(
 						return options.onCancel();
 					}
 				},
-				onFinish: (visit: any) => {
+				onFinish: () => {
 					this.processing = false;
 					this.progress = null;
 					cancelToken = null;
 
 					if (options.onFinish) {
-						return options.onFinish(visit);
+						return options.onFinish();
 					}
 				},
 			};
 
-			if (method === "delete") {
-				router.delete(url, { ..._options, data });
-			} else {
-				(router as any)[method](url, data, _options);
+			let ret: any;
+
+			try {
+				this.processing = true;
+				const multipart = data instanceof FormData && !!data.values();
+
+				switch (method) {
+					case "post":
+						ret = await remotePost(url, data, options);
+						break;
+
+					case "patch":
+						ret = await remotePatch(data, url, multipart, options);
+						break;
+
+					case "put":
+						ret = await remotePut(data, url, multipart, options);
+						break;
+
+					case "delete":
+						ret = await deleteRecord(data, url, options);
+						break;
+
+					default:
+						ret = await remoteGet(url, _options);
+						break;
+				}
+
+				this.processing = false;
+			} catch (error) {
+				ret.errors = [error];
 			}
+
+			if ((ret?.response?.data as any)?.errors) {
+				this.errors = (ret.response?.data as any).errors;
+			}
+
+			this.processing = false;
+			return ret;
 		},
-		get(url: string, options: any) {
-			this.submit("get", url, options);
+
+		async get(url: string, options?: TFormOpts & AxiosRequestConfig) {
+			return this.submit("get", url, options);
 		},
-		post(url: string, options: any) {
-			this.submit("post", url, options);
+
+		async post(url: string, options?: TFormOpts & AxiosRequestConfig) {
+			return this.submit("post", url, options);
 		},
-		put(url: string, options: any) {
-			this.submit("put", url, options);
+
+		async put(url: string, options?: TFormOpts & AxiosRequestConfig) {
+			return this.submit("put", url, options);
 		},
-		patch(url: string, options: any) {
-			this.submit("patch", url, options);
+
+		async patch(url: string, options?: TFormOpts & AxiosRequestConfig) {
+			return this.submit("patch", url, options);
 		},
-		delete(url: string, options: any) {
-			this.submit("delete", url, options);
+
+		async delete(url: string, options?: TFormOpts & AxiosRequestConfig) {
+			return this.submit("delete", url, options);
 		},
+
 		cancel() {
 			if (cancelToken) {
 				cancelToken.cancel();
 			}
 		},
-		__rememberable: rememberKey === null,
-		__remember() {
-			return { data: this.data(), errors: this.errors };
-		},
-		__restore(restored: any) {
-			Object.assign(this, restored.data);
-			this.setError(restored.errors);
-		},
 	});
 
 	watch(
 		form,
-		(newValue) => {
-			form.isDirty = !isEqual(form.data(), defaults);
-			if (rememberKey) {
-				router.remember(cloneDeep(newValue.__remember()), rememberKey);
-			}
+		(val) => {
+			form.isDirty = !!val;
 		},
 		{ immediate: true, deep: true }
 	);
